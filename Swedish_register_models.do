@@ -13,7 +13,7 @@ foreach mend in any alcohol anxiety depression psychotic stress substance tobacc
     clear
     set obs 1
     gen exp = "`mend'"
-    gen adj_or = b[1,1]
+    gen adj_rr = b[1,1]
     gen adj_lci = b[5,1]
     gen adj_uci = b[6,1]
     gen adj_p = b[4,1]
