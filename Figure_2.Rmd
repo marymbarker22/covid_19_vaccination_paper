@@ -1,0 +1,207 @@
+---
+title: "vac_registry_omtanke"
+author: "Gillian Murphy"
+date: "2023-08-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(haven)
+library(metafor)
+library(broom)
+library(gridExtra)
+```
+
+# First vaccine dose
+## Dataframe
+```{r}
+setwd("/Volumes/projects/Covid_projects/COVIDMENT_vaccination_Mary/GM_meta_analysis/Registry project/updated_rr_analysis_mmb")
+dose1 <- read_dta("adj_rr_vac1.dta")
+
+index <- 1:14
+exposure <- c("Any mental illness", "Tobacco use disorder","Alcohol use disorder","Substance use disorder",
+              "Psychotic disorder","Depression","Anxiety","Stress-related disorder", 
+              "i",
+              "Any psychiatric medication","Antidepressants","Anxiolytics","Hypnotics/sedatives","Antipsychotics")
+type <- c(rep("Disorder",8),rep("Rx",6))
+
+estimate <- c(dose1$adj_or[13],dose1$adj_or[6],dose1$adj_or[12],dose1$adj_or[7],
+              dose1$adj_or[9],dose1$adj_or[10],dose1$adj_or[11],dose1$adj_or[8],
+              NA,dose1$adj_or[1],dose1$adj_or[5],dose1$adj_or[3],dose1$adj_or[2],dose1$adj_or[4])
+conf.low <- c(dose1$adj_lci[13],dose1$adj_lci[6],dose1$adj_lci[12],dose1$adj_lci[7],
+              dose1$adj_lci[9],dose1$adj_lci[10],dose1$adj_lci[11],dose1$adj_lci[8],
+              NA,dose1$adj_lci[1],dose1$adj_lci[5],dose1$adj_lci[3],dose1$adj_lci[2],dose1$adj_lci[4])
+conf.high <- c(dose1$adj_uci[13],dose1$adj_uci[6],dose1$adj_uci[12],dose1$adj_uci[7],
+               dose1$adj_uci[9],dose1$adj_uci[10],dose1$adj_uci[11],dose1$adj_uci[8],
+              NA,dose1$adj_uci[1],dose1$adj_uci[5],dose1$adj_uci[3],dose1$adj_uci[2],dose1$adj_uci[4])
+
+conf.int <- rep(NA,length(index))
+for (i in index){
+  conf.int[i] <- paste(format(round(estimate[i],2),nsmall=2),
+                    " (",
+                    format(round(conf.low[i],digits=2),nsmall=2),
+                    "-",
+                    format(round(conf.high[i],2),nsmall=2)
+                    ,")",sep="")
+}
+df.dose1 <- data.frame(index, exposure, type, estimate, conf.low, conf.high, conf.int)
+```
+
+## Plot
+```{r}
+xname <- expression("Prevalence ratio")
+text.size <- 12
+cols <- c("#FF5C72","#AAD86F")
+labels <- c("Any mental illness", "Tobacco use disorder","Alcohol use disorder","Substance use disorder",
+            "Psychotic disorder","Depression","Anxiety","Stress-related disorder", 
+            "",
+            "Any psychiatric medication","Antidepressants","Anxiolytics","Hypnotics/sedatives","Antipsychotics")
+labels <- as.expression(labels)
+labels[[1]] <- bquote(bold(.(labels[[1]])))
+labels[[10]] <- bquote(bold(.(labels[[10]])))
+
+p.dose1 <- ggplot(data = df.dose1, aes(y=index, x= estimate, xmin=conf.low, xmax = conf.high))+
+  geom_vline(xintercept = 1,color="black", linetype = "dashed", alpha=0.5)+
+  geom_point(data = subset(df.dose1, type=="Disorder"), aes(color=type), size=1.8) +
+  geom_point(data = subset(df.dose1, type=="Rx"), aes(color=type), size=1.8)+
+  geom_errorbarh(data = subset(df.dose1, type=="Disorder"), height=0.01, aes(color=type), size=0.5) +
+  geom_errorbarh(data = subset(df.dose1, type=="Rx"), height=0.01, aes(color=type), size=0.5) +
+  scale_y_continuous(name="", breaks = c(1:14),labels = labels, trans = "reverse",expand = c(0, 0)) +  
+  expand_limits(y = c(0, max(index) + 1)) + 
+  theme_classic()+ 
+  labs(title = "Received first dose of COVID-19 vaccine by 30th September 2021") +
+  theme(axis.text.y = element_text(hjust = 0),text = element_text(size = text.size),axis.line.y = element_blank(),axis.ticks.y = element_blank(), axis.text=element_text(size=text.size)) +
+  guides(size="none")+
+  guides(color = "none") +
+  scale_x_continuous(limits = c(0.9,1.2), breaks=c(0.90,0.95,1.0,1.05,1.1), name=xname,expand = c(0, 0))+
+  geom_label(aes(x = 1.15, y = 1, label = conf.int[1]), fill = "white",label.size = NA,size=3.5) +
+  geom_label(aes(x = 1.15, y = 2, label = conf.int[2]), fill = "white",label.size = NA,size=3.5) +
+  geom_label(aes(x = 1.15, y = 3, label = conf.int[3]), fill = "white",label.size = NA,size=3.5) +
+  geom_label(aes(x = 1.15, y = 4, label = conf.int[4]), fill = "white",label.size = NA,size=3.5) +
+  geom_label(aes(x = 1.15, y = 5, label = conf.int[5]), fill = "white",label.size = NA,size=3.5) +
+  geom_label(aes(x = 1.15, y = 6, label = conf.int[6]), fill = "white",label.size = NA,size=3.5) +
+  geom_label(aes(x = 1.15, y = 7, label = conf.int[7]), fill = "white",label.size = NA,size=3.5) +
+  geom_label(aes(x = 1.15, y = 8, label = conf.int[8]), fill = "white",label.size = NA,size=3.5) +
+  geom_label(aes(x = 1.15, y = 10, label = conf.int[10]), fill = "white",label.size = NA,size=3.5) +
+  geom_label(aes(x = 1.15, y = 11, label = conf.int[11]), fill = "white",label.size = NA,size=3.5) +
+  geom_label(aes(x = 1.15, y = 12, label = conf.int[12]), fill = "white",label.size = NA,size=3.5) +
+  geom_label(aes(x = 1.15, y = 13, label = conf.int[13]), fill = "white",label.size = NA,size=3.5) +
+  geom_label(aes(x = 1.15, y = 14, label = conf.int[14]), fill = "white",label.size = NA,size=3.5) +
+    annotate("rect", xmin = 0.9, xmax = 1.2, ymin = 0.5, ymax = 1.5,
+           alpha = .1,fill = "black") +
+    annotate("rect", xmin = 0.9, xmax = 1.2, ymin = 2.5, ymax = 3.5,
+           alpha = .1,fill = "black") +
+    annotate("rect", xmin = 0.9, xmax = 1.2, ymin = 4.5, ymax = 5.5,
+           alpha = .1,fill = "black") +
+    annotate("rect", xmin = 0.9, xmax = 1.2, ymin = 6.5, ymax = 7.5,
+           alpha = .1,fill = "black") +
+    annotate("rect", xmin = 0.9, xmax = 1.2, ymin = 9.5, ymax = 10.5,
+           alpha = .1,fill = "black") +
+    annotate("rect", xmin = 0.9, xmax = 1.2, ymin = 11.5, ymax = 12.5,
+           alpha = .1,fill = "black") +
+    annotate("rect", xmin = 0.9, xmax = 1.2, ymin = 13.5, ymax = 14.5,
+           alpha = .1,fill = "black") +
+    annotate("text", x = 1.15, y = 0.2, label = c("PR (95% CI)"), hjust = 0.5, size = 3.5, fontface = "bold")
+p.dose1
+ggsave("dose1.png",p.dose1, width=10, height=6, device = "png")
+```
+
+
+
+#Second vaccine dose
+##Dataframe
+```{r}
+dose2 <- read_dta("adj_rr_vac2.dta")
+
+index <- 1:14
+exposure <- c("Any mental illness", "Tobacco use disorder","Alcohol use disorder","Substance use disorder",
+              "Psychotic disorder","Depression","Anxiety","Stress-related disorder", 
+              "i",
+              "Any psychiatric medication","Antidepressants","Anxiolytics","Hypnotics/sedatives","Antipsychotics")
+type <- c(rep("Disorder",8),rep("Rx",6))
+
+estimate <- c(dose2$adj_or[13],dose2$adj_or[6],dose2$adj_or[12],dose2$adj_or[7],
+              dose2$adj_or[9],dose2$adj_or[10],dose2$adj_or[11],dose2$adj_or[8],
+              NA,dose2$adj_or[1],dose2$adj_or[5],dose2$adj_or[3],dose2$adj_or[2],dose2$adj_or[4])
+conf.low <- c(dose2$adj_lci[13],dose2$adj_lci[6],dose2$adj_lci[12],dose2$adj_lci[7],
+              dose2$adj_lci[9],dose2$adj_lci[10],dose2$adj_lci[11],dose2$adj_lci[8],
+              NA,dose2$adj_lci[1],dose2$adj_lci[5],dose2$adj_lci[3],dose2$adj_lci[2],dose2$adj_lci[4])
+conf.high <- c(dose2$adj_uci[13],dose2$adj_uci[6],dose2$adj_uci[12],dose2$adj_uci[7],
+               dose2$adj_uci[9],dose2$adj_uci[10],dose2$adj_uci[11],dose2$adj_uci[8],
+              NA,dose2$adj_uci[1],dose2$adj_uci[5],dose2$adj_uci[3],dose2$adj_uci[2],dose2$adj_uci[4])
+
+conf.int <- rep(NA,length(index))
+for (i in index){
+  conf.int[i] <- paste(format(round(estimate[i],2),nsmall=2),
+                    " (",
+                    format(round(conf.low[i],digits=2),nsmall=2),
+                    "-",
+                    format(round(conf.high[i],2),nsmall=2)
+                    ,")",sep="")
+}
+df.dose2 <- data.frame(index, exposure, type, estimate, conf.low, conf.high, conf.int)
+```
+
+## Plot
+```{r}
+xname <- expression("Prevalence ratio")
+text.size <- 12
+cols <- c("#FF5C72","#AAD86F")
+labels <- c("Any mental illness", "Tobacco use disorder","Alcohol use disorder","Substance use disorder",
+            "Psychotic disorder","Depression","Anxiety","Stress-related disorder", 
+            "",
+            "Any psychiatric medication","Antidepressants","Anxiolytics","Hypnotics/sedatives","Antipsychotics")
+labels <- as.expression(labels)
+labels[[1]] <- bquote(bold(.(labels[[1]])))
+labels[[10]] <- bquote(bold(.(labels[[10]])))
+
+p.dose2 <- ggplot(data = df.dose2, aes(y=index, x= estimate, xmin=conf.low, xmax = conf.high))+
+  geom_vline(xintercept = 1,color="black", linetype = "dashed", alpha=0.5)+
+  geom_point(data = subset(df.dose2, type=="Disorder"), aes(color=type), size=1.8) +
+  geom_point(data = subset(df.dose2, type=="Rx"), aes(color=type), size=1.8)+
+  geom_errorbarh(data = subset(df.dose2, type=="Disorder"), height=0.01, aes(color=type), size=0.5) +
+  geom_errorbarh(data = subset(df.dose2, type=="Rx"), height=0.01, aes(color=type), size=0.5) +
+  scale_y_continuous(name="", breaks = c(1:14),labels = labels, trans = "reverse",expand = c(0, 0)) +  
+  expand_limits(y = c(0, max(index) + 1)) + 
+  theme_classic()+ 
+  labs(title = "Received second dose of COVID-19 vaccine by 30th November 2021") +
+  theme(axis.text.y = element_text(hjust = 0),text = element_text(size = text.size),axis.line.y = element_blank(),axis.ticks.y = element_blank(), axis.text=element_text(size=text.size)) +
+  guides(size="none")+
+  guides(color = "none") +
+  scale_x_continuous(limits = c(0.9,1.2), breaks=c(0.90,0.95,1.0,1.05,1.1), name=xname,expand = c(0, 0))+
+  geom_label(aes(x = 1.15, y = 1, label = conf.int[1]), fill = "white",label.size = NA,size=3.5) +
+  geom_label(aes(x = 1.15, y = 2, label = conf.int[2]), fill = "white",label.size = NA,size=3.5) +
+  geom_label(aes(x = 1.15, y = 3, label = conf.int[3]), fill = "white",label.size = NA,size=3.5) +
+  geom_label(aes(x = 1.15, y = 4, label = conf.int[4]), fill = "white",label.size = NA,size=3.5) +
+  geom_label(aes(x = 1.15, y = 5, label = conf.int[5]), fill = "white",label.size = NA,size=3.5) +
+  geom_label(aes(x = 1.15, y = 6, label = conf.int[6]), fill = "white",label.size = NA,size=3.5) +
+  geom_label(aes(x = 1.15, y = 7, label = conf.int[7]), fill = "white",label.size = NA,size=3.5) +
+  geom_label(aes(x = 1.15, y = 8, label = conf.int[8]), fill = "white",label.size = NA,size=3.5) +
+  geom_label(aes(x = 1.15, y = 10, label = conf.int[10]), fill = "white",label.size = NA,size=3.5) +
+  geom_label(aes(x = 1.15, y = 11, label = conf.int[11]), fill = "white",label.size = NA,size=3.5) +
+  geom_label(aes(x = 1.15, y = 12, label = conf.int[12]), fill = "white",label.size = NA,size=3.5) +
+  geom_label(aes(x = 1.15, y = 13, label = conf.int[13]), fill = "white",label.size = NA,size=3.5) +
+  geom_label(aes(x = 1.15, y = 14, label = conf.int[14]), fill = "white",label.size = NA,size=3.5) +
+    annotate("rect", xmin = 0.9, xmax = 1.2, ymin = 0.5, ymax = 1.5,
+           alpha = .1,fill = "black") +
+    annotate("rect", xmin = 0.9, xmax = 1.2, ymin = 2.5, ymax = 3.5,
+           alpha = .1,fill = "black") +
+    annotate("rect", xmin = 0.9, xmax = 1.2, ymin = 4.5, ymax = 5.5,
+           alpha = .1,fill = "black") +
+    annotate("rect", xmin = 0.9, xmax = 1.2, ymin = 6.5, ymax = 7.5,
+           alpha = .1,fill = "black") +
+    annotate("rect", xmin = 0.9, xmax = 1.2, ymin = 9.5, ymax = 10.5,
+           alpha = .1,fill = "black") +
+    annotate("rect", xmin = 0.9, xmax = 1.2, ymin = 11.5, ymax = 12.5,
+           alpha = .1,fill = "black") +
+    annotate("rect", xmin = 0.9, xmax = 1.2, ymin = 13.5, ymax = 14.5,
+           alpha = .1,fill = "black") +
+    annotate("text", x = 1.15, y = 0.2, label = c("PR (95% CI)"), hjust = 0.5, size = 3.5, fontface = "bold")
+p.dose2
+ggsave("dose2.png",p.dose2, width=10, height=6, device = "png")
+```

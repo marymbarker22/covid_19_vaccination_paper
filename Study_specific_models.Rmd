@@ -1,0 +1,105 @@
+---
+title: "Models_vac_project"
+author: "Mary M Barker"
+date: "08/12/2022"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load R packages
+```{r}
+library(tidyverse)
+library(haven)
+library(dplyr)
+library(tidymodels)
+library(broom)
+library(broom.mixed)
+library(glue)
+library(sandwich)
+```
+
+##Load data
+```{r}
+setwd("data_stata/")
+vac <- read_dta("vacc_project_analysis.dta")
+```
+
+## Outcomes (all coded as No(0) Yes(1) Missing(2)):
+Uptake of at least 1 COVID-19 vaccine by 18th Feb 2022 - "vac_feb"
+Uptake of at least 1 COVID-19 vaccine by 30th Sep 2021 - "vac_sep"
+Uptake of second dose of COVID19 vaccine by 18th Feb 2022 - "vac_dose2"
+
+## Exposures (all coded as No(0) Yes(1) Missing(2)):
+Mental health diagnosis - "ment_dis"
+Anxiety - "anx"
+Depression - "dep"
+Any physical condition - "chronic_phy"
+Hypertension - "hypertension"
+Heart disease - "heart_dis"
+Lung disease - "lung_dis"
+Chronic renal failure - "ren_fail"
+Cancer - "cancer"
+Diabetes - "diab"
+Immunological conditions - "immune dis"
+
+## Covariates
+Age - "age" (continuous)
+Sex - "sex" (coded as Female(0), Male(1), Missing (2))
+Previous COVID-19 - "prev_covid" (coded as No(0), Yes(1))
+Smoking status - "smoke" (coded as No(0), Yes(1), Missing(2))
+
+## Recode all missing values to NA
+```{r}
+vac <- vac %>% 
+  mutate(across(.cols = c("ment_dis","anx", "dep", "chronic_phy", "hypertension", "heart_dis", "lung_dis", "ren_fail", "cancer", "diab", "immune_dis", "vac_feb", "vac_sep", "vac_dose2", "sex", "smoke", "min2_comorbs"), 
+                .fns = ~ ifelse(. == 2, NA, .)))
+```
+
+## Create interaction variable
+```{r}
+vac <- vac %>% 
+  mutate(interaction = ment_dis * chronic_phy)  
+```
+
+
+## Create function to define which model results we require
+```{r}
+get_res <- function(m) {
+  df <- tidy(m)
+  df$n_obs <- nobs(m)
+  df
+}
+```
+
+## Define model specifications
+```{r}
+outcomes <- c("vac_feb", "vac_sep", "vac_dose2")
+exposures <- c("ment_dis","anx", "dep", "chronic_phy", "hypertension", "heart_dis", "lung_dis", "ren_fail", "cancer", "diab", "immune_dis")
+adjustments <- c("age + sex", "age + sex + prev_covid", "age + sex + prev_covid + smoke + min2_comorbs", "age + sex + prev_covid + smoke + min2_comorbs + interaction")
+spec <- expand.grid(outcomes, exposures, adjustments)
+spec$ID_real <- as.character(1:132)
+formulas <- glue("{spec$Var1} ~ {spec$Var2} + {spec$Var3}")
+```
+
+## Run models and save results to data frame
+```{r}
+robust_se <- function(model) {
+  sqrt(diag(sandwich(model)))
+}
+res <- map(formulas, ~ glm(., data = vac,
+                           family = poisson(link = log))) %>%
+  map_dfr(~ cbind(tidy(.), robust_se = robust_se(.))) %>%
+  mutate(RR = exp(estimate), Lower = exp(estimate - 1.96 * robust_se), Higher = exp(estimate + 1.96 * robust_se))
+```
+
+## Save model results data frame as a .csv file
+```{r}
+write.table(res, file = "Tables/vac_mod_results_ver3.csv", sep = ",", 
+            row.names = FALSE, col.names = TRUE, quote=FALSE)
+```

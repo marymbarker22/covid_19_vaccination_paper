@@ -1,0 +1,282 @@
+---
+title: "mh_plots_dose1"
+author: "Gillian Murphy"
+date: "2023-07-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(readxl)
+library(metafor)
+library(broom)
+library(gridExtra)
+library(dplyr)
+library(conflicted)
+conflicts_prefer(dplyr::filter)
+```
+
+```{r}
+# Open each data set for the study sites
+setwd("")
+ee_c19 <- read_excel("ee_c19.xlsx")
+ee_ehr <- read_excel("ee_ehr.xlsx")
+is <- read_excel("is_c19res.xlsx")
+no_map19 <- read_excel("no_map19.xlsx")
+no_moba <- read_excel("no_moba.xlsx")
+sc <- read_excel("scotland.xlsx")
+se <- read_excel("se_omtanke.xlsx")
+
+# Create study label variable for meta analysis (rma function)
+studylab <- c("EstBB C-19 (Estonia)","EstBB-EHR (Estonia)","C19-Resilience (Iceland)","MAP-19 (Norway)","MoBa (Norway)","CovidLife (Scotland)","Omtanke2020 (Sweden)")
+```
+
+
+#Plot - by study
+## Any mental health condition
+```{r}
+# This tells it which row to focus on. In this case, it's any mental health disorder
+linenr <- 1 
+
+# This creates a data frame from specified columns (columns 2 to 8) of each study site. The mutate function adds a new variable called "Study" to this data frame and assigns the study labels from the studylab vector to it. The relocate function moves the "Study" variable to the beginning of the data frame. 
+data.mh <- (rbind(ee_c19[linenr,2:8], ee_ehr[linenr,2:8], is[linenr,2:8], no_map19[linenr,2:8], no_moba[linenr,2:8], sc[linenr,2:8], se[linenr,2:8])) %>% mutate(Study=studylab) %>% relocate(Study) 
+
+# These lines extract and transform specific columns from the data.mh data frame. For example, est.mh contains the logarithm of the "OR" column values, se.mh contains the numeric values from the "std.error" column, and so on.
+est.mh <- log(data.mh$RR)
+se.mh <- as.numeric(data.mh$std.error)
+est <- data.mh$estimate
+lci <- log(data.mh$Lower)
+uci <- log(data.mh$Higher)
+std.error <- as.numeric(data.mh$std.error) 
+
+# These lines create new columns in the data.mh data frame called "lci" and "uci" and fill them with NA values initially.
+data.mh$lci <- rep(NA, nrow(data.mh))
+data.mh$uci <- rep(NA, nrow(data.mh))
+data.mh$lci <- as.numeric(lci)
+data.mh$uci <- as.numeric(uci) 
+
+# This line performs the meta-analysis for any mental health disorder. It calculates a random-effects meta-analysis using the log-transformed odds ratios (est.mh) and standard errors (se.mh) for each study site. The slab argument assigns study labels, and the measure argument specifies that the measure of effect size is the odds ratio ("OR"). The results are stored in the mh object.
+mh <- rma(yi=est.mh,sei = se.mh,slab=studylab,measure="OR")
+```
+
+```{r}
+# This line selects specific columns ("OR," "Study," "Lower," and "Higher") from the data.mh data frame.This creates the tibble displayed below.
+select(data.mh,RR,Study,Lower,Higher)
+
+# This will create a new data frame that will contain the tidy summary stats of the meta analysis, including exponentiated values of the estimates and CI's
+mh.o <- tidy(mh, exponentiate = T, conf.int = T) 
+
+#Get I2 and p values for I2 and model from here:
+summary(mh)
+```
+
+
+##Anxiety symptoms
+```{r}
+# This is almost the same as the code for any mental health condition, with a few changes:
+  # I create a new variable called "studylab.anxdep" that will be just for the anx and dep since they are missing from Est EHR
+  # Here, we are going to replace the values for linenr, est, lci, uci, and std.error. This is fine since we don't need those values for mh anymore (and they are all saved in the excel files anyway)
+
+linenr <- 2
+studylab.anxdep <- c("EstBB C-19 (Estonia)","C19-Resilience (Iceland)","MAP-19 (Norway)","MoBa (Norway)","CovidLife (Scotland)","Omtanke2020 (Sweden)")
+data.anx <- (rbind(ee_c19[linenr,2:8], is[linenr,2:8], no_map19[linenr,2:8], no_moba[linenr,2:8], sc[linenr,2:8], se[linenr,2:8])) %>% mutate(Study=studylab.anxdep) %>% relocate(Study)
+
+est <- data.anx$estimate
+lci <- log(data.anx$Lower)
+uci <- log(data.anx$Higher)
+std.error <- as.numeric(data.anx$std.error)
+data.anx$lci <- rep(NA, nrow(data.anx))
+data.anx$uci <- rep(NA, nrow(data.anx))
+data.anx$lci <- as.numeric(lci)
+data.anx$uci <- as.numeric(uci)
+
+anx.meta <- rma(yi=est,sei = std.error,slab=studylab.anxdep,measure="RR")
+```
+
+```{r}
+select(data.anx,RR,Study,Lower,Higher)
+anx.o <- tidy(anx.meta,exponentiate = T,conf.int = T)
+
+#Get I2 and p values for I2 and model from here:
+summary(anx.meta)
+```
+
+##Depressive symptoms
+```{r}
+linenr <- 3
+data.dep <- (rbind(ee_c19[linenr,2:8], is[linenr,2:8], no_map19[linenr,2:8], no_moba[linenr,2:8], sc[linenr,2:8], se[linenr,2:8])) %>% mutate(Study=studylab.anxdep) %>% relocate(Study)
+
+est <- data.dep$estimate
+lci <- log(data.dep$Lower)
+uci <- log(data.dep$Higher)
+std.error <- as.numeric(data.dep$std.error)
+data.dep$lci <- rep(NA, nrow(data.dep))
+data.dep$uci <- rep(NA, nrow(data.dep))
+data.dep$lci <- as.numeric(lci)
+data.dep$uci <- as.numeric(uci)
+
+dep.meta <- rma(yi=est,sei = std.error,slab=studylab.anxdep,measure="RR")
+```
+
+```{r}
+select(data.dep,RR,Study,Lower,Higher)
+dep.o <- tidy(dep.meta,exponentiate = T,conf.int = T)
+
+#Get I2 and p values for I2 and model from here:
+summary(dep.meta)
+```
+
+## Plot
+### Create the data frame
+```{r}
+# This variable "index" will correspond to the length of the y axis in the plot. Here, we have 3 lines each for C19, IS, Map19, MoBa, UK, SE, and Overall, and 1 for Est BB EHR (since we don't have anx or dep from them). This equates to 3*7 + 1 =  22
+index <- 1:22
+
+# "study" and "name" help us keep track in the data frame of the estimates
+study <- c("EstBB C-19 (Estonia) - Any mental health condition","EstBB C-19 (Estonia) - Anxiety", "EstBB C-19 (Estonia) - Depression",
+           "EstBB-EHR (Estonia) - Any mental health condition",
+           "C19-Resilience (Iceland) - Any mental health condition","C19-Resilience (Iceland) - Anxiety", "C19-Resilience (Iceland) - Depression",
+           "MAP-19 (Norway) - Any mental health condition","MAP-19 (Norway) - Anxiety", "MAP-19 (Norway) - Depression",
+           "MoBa (Norway) - Any mental health condition","MoBa (Norway) - Anxiety", "MoBa (Norway) - Depression",
+           "CovidLife (Scotland) - Any mental health condition","CovidLife (Scotland) - Anxiety", "CovidLife (Scotland) - Depression",
+           "Omtanke2020 (Sweden) - Any mental health condition","Omtanke2020 (Sweden) - Anxiety", "Omtanke2020 (Sweden) - Depression",
+           "Overall - Any mental health condition","Overall - Anxiety", "Overall - Depression")
+name <- c(rep("EstBB C-19 (Estonia)",3),rep("EstBB-EHR (Estonia)",1),rep("C19-Resilience (Iceland)",3),rep("MAP-19 (Norway)",3),rep("MoBa (Norway)",3),rep("CovidLife (Scotland)",3),rep("Omtanke2020 (Sweden)",3),rep("Overall",3))
+
+# The two "cat"s vars will be for the legend
+cat <- c("Any mental health condition", "Anxiety", "Depression", "Any mental health condition", "Any mental health condition", "Anxiety", "Depression", "Any mental health condition", "Anxiety", "Depression", "Any mental health condition", "Anxiety", "Depression", "Any mental health condition", "Anxiety", "Depression", "Any mental health condition", "Anxiety", "Depression","Any mental health condition", "Anxiety", "Depression")
+cat <- factor(cat, levels = c("Any mental health condition", "Anxiety", "Depression"))
+
+# This is to differentiate the individual study sites from the overall estimates for each exposure. This is mostly for aesthetic reasons, i.e. make overall shapes diamonds instead of circles
+type <- c(rep("ind",19),rep("Overall",3))
+
+# These lines populate vars by extracting values from the different data frames we created related to individual studies and overall results. 
+estimate <- c(data.mh$RR[1],data.anx$RR[1],data.dep$RR[1],
+              data.mh$RR[2],
+              data.mh$RR[3],data.anx$RR[2],data.dep$RR[2],
+              data.mh$RR[4],data.anx$RR[3],data.dep$RR[3],
+              data.mh$RR[5],data.anx$RR[4],data.dep$RR[4],
+              data.mh$RR[6],data.anx$RR[5],data.dep$RR[5],
+              data.mh$RR[7],data.anx$RR[6],data.dep$RR[6],
+              mh.o$estimate,anx.o$estimate,dep.o$estimate)
+std.error <- c(data.mh$std.error[1],data.anx$std.error[1],data.dep$std.error[1],
+              data.mh$std.error[2],
+              data.mh$std.error[3],data.anx$std.error[2],data.dep$std.error[2],
+              data.mh$std.error[4],data.anx$std.error[3],data.dep$std.error[3],
+              data.mh$std.error[5],data.anx$std.error[4],data.dep$std.error[4],
+              data.mh$std.error[6],data.anx$std.error[5],data.dep$std.error[5],
+              data.mh$std.error[7],data.anx$std.error[6],data.dep$std.error[6],
+              mh.o$std.error,anx.o$std.error,dep.o$std.error)
+statistic <- as.numeric(c(data.mh$statistic[1],data.anx$statistic[1],data.dep$statistic[1],
+              data.mh$statistic[2],
+              data.mh$statistic[3],data.anx$statistic[2],data.dep$statistic[2],
+              data.mh$statistic[4],data.anx$statistic[3],data.dep$statistic[3],
+              data.mh$statistic[5],data.anx$statistic[4],data.dep$statistic[4],
+              data.mh$statistic[6],data.anx$statistic[5],data.dep$statistic[5],
+              data.mh$statistic[7],data.anx$statistic[6],data.dep$statistic[6],
+              mh.o$statistic,anx.o$statistic,dep.o$statistic))
+p.value <- as.numeric(c(data.mh$p.value[1],data.anx$p.value[1],data.dep$p.value[1],
+              data.mh$p.value[2],
+              data.mh$p.value[3],data.anx$p.value[2],data.dep$p.value[2],
+              data.mh$p.value[4],data.anx$p.value[3],data.dep$p.value[3],
+              data.mh$p.value[5],data.anx$p.value[4],data.dep$p.value[4],
+              data.mh$p.value[6],data.anx$p.value[5],data.dep$p.value[5],
+              data.mh$p.value[7],data.anx$p.value[6],data.dep$p.value[6],
+              mh.o$p.value,anx.o$p.value,dep.o$p.value))
+conf.low <- as.numeric(c(data.mh$Lower[1],data.anx$Lower[1],data.dep$Lower[1],
+              data.mh$Lower[2],
+              data.mh$Lower[3],data.anx$Lower[2],data.dep$Lower[2],
+              data.mh$Lower[4],data.anx$Lower[3],data.dep$Lower[3],
+              data.mh$Lower[5],data.anx$Lower[4],data.dep$Lower[4],
+              data.mh$Lower[6],data.anx$Lower[5],data.dep$Lower[5],
+              data.mh$Lower[7],data.anx$Lower[6],data.dep$Lower[6],
+              mh.o$conf.low,anx.o$conf.low,dep.o$conf.low))
+conf.high <- as.numeric(c(data.mh$Higher[1],data.anx$Higher[1],data.dep$Higher[1],
+              data.mh$Higher[2],
+              data.mh$Higher[3],data.anx$Higher[2],data.dep$Higher[2],
+              data.mh$Higher[4],data.anx$Higher[3],data.dep$Higher[3],
+              data.mh$Higher[5],data.anx$Higher[4],data.dep$Higher[4],
+              data.mh$Higher[6],data.anx$Higher[5],data.dep$Higher[5],
+              data.mh$Higher[7],data.anx$Higher[6],data.dep$Higher[6],
+              mh.o$conf.high,anx.o$conf.high,dep.o$conf.high))
+
+# This is to create a variable that will put the RRs and CIs into the display format for the plot, i.e., "0.87 (0.71-1.06)"
+conf.int <- rep(length(index))
+for (i in index){
+  conf.int[i] <- paste(format(round(estimate[i],2),nsmall=2),
+                    " (",
+                    format(round(conf.low[i],digits=2),nsmall=2),
+                    "-",
+                    format(round(conf.high[i],2),nsmall=2)
+                    ,")",sep="")
+}
+
+# Create the data frame we will use for the forest plot
+df.ment <- data.frame(index,study,name, type, cat,estimate, std.error, statistic, p.value, conf.low,conf.high, conf.int)
+```
+
+### Build the forest plot
+```{r}
+
+xname <- expression("Prevalence ratio") # This labels the x-axis
+text.size <- 12 # font size
+cols <- c("#8971EA","#F9C04D","#61D1CA") #legend and plot colors
+labels <- c("","EstBB C-19 (Estonia)","","EstBB-EHR (Estonia)","","C19-Resilience (Iceland)","","","MAP-19 (Norway)","","","MoBa (Norway)","","","CovidLife (Scotland)","","","Omtanke2020 (Sweden)","","","Overall","") #labels for the y axis; note the empty values "" 
+labels <- as.expression(labels) #convert labels to expression
+labels[[21]] <- bquote(bold(.(labels[[21]]))) #make the label "Overall" boldface
+
+p.ment <- ggplot(data = df.ment, aes(y=index, x= estimate, xmin=conf.low, xmax = conf.high))+ 
+  geom_vline(xintercept = 1,color="black", linetype = "dashed", alpha=0.5)+
+  geom_point(data = subset(df.ment, type=="ind"),aes(color=cat),size=2) +
+  geom_point(data = subset(df.ment, type=="Overall"),aes(color=cat),shape=18,size=4.25)+
+  geom_errorbarh(data = subset(df.ment, type=="ind"),height=0.01, aes(color=cat),size=0.5)+
+  geom_errorbarh(data = subset(df.ment, type=="Overall"), aes(color=cat),height=0.01,size=0.75)+
+  scale_y_continuous(name="", breaks = c(1:22),labels = labels, trans = "reverse",expand = c(0, 0)) +  
+  expand_limits(y = c(0, max(index) + 1)) + 
+  theme_classic()+  
+  labs(title = "Received at least one dose of a COVID-19 vaccine by September 2021") +
+  theme(axis.text.y = element_text(hjust = 0),text = element_text(size = 14),axis.line.y = element_blank(),axis.ticks.y = element_blank(),axis.text=element_text(size=14)) +
+  guides(size="none")+
+  scale_x_continuous(limits = c(0.6,1.6), breaks=c(0.75,1,1.25), name=xname,expand = c(0, 0))+ 
+  scale_color_manual(name=bquote(bold("Mental illness or symptoms")),labels=c("A previous diagnosis of any mental illness","Anxiety symptoms","Depressive symptoms"), values=cols) +
+  geom_label(aes(x = 1.45, y = 1, label = conf.int[1]), fill = "white",label.size = NA,size=4.5) +
+  geom_label(aes(x = 1.45, y = 2, label = conf.int[2]), fill = "white",label.size = NA,size=4.5) +
+  geom_label(aes(x = 1.45, y = 3, label = conf.int[3]), fill = "white",label.size = NA,size=4.5) +
+  geom_label(aes(x = 1.45, y = 4, label = conf.int[4]), fill = "white",label.size = NA,size=4.5) +
+  geom_label(aes(x = 1.45, y = 5, label = conf.int[5]), fill = "white",label.size = NA,size=4.5) +
+  geom_label(aes(x = 1.45, y = 6, label = conf.int[6]), fill = "white",label.size = NA,size=4.5) +
+  geom_label(aes(x = 1.45, y = 7, label = conf.int[7]), fill = "white",label.size = NA,size=4.5) +
+  geom_label(aes(x = 1.45, y = 8, label = conf.int[8]), fill = "white",label.size = NA,size=4.5) +
+  geom_label(aes(x = 1.45, y = 9, label = conf.int[9]), fill = "white",label.size = NA,size=4.5) +
+  geom_label(aes(x = 1.45, y = 10, label = conf.int[10]), fill = "white",label.size = NA,size=4.5) +
+  geom_label(aes(x = 1.45, y = 11, label = conf.int[11]), fill = "white",label.size = NA,size=4.5) +
+  geom_label(aes(x = 1.45, y = 12, label = conf.int[12]), fill = "white",label.size = NA,size=4.5) +
+  geom_label(aes(x = 1.45, y = 13, label = conf.int[13]), fill = "white",label.size = NA,size=4.5) +
+  geom_label(aes(x = 1.45, y = 14, label = conf.int[14]), fill = "white",label.size = NA,size=4.5) +
+  geom_label(aes(x = 1.45, y = 15, label = conf.int[15]), fill = "white",label.size = NA,size=4.5) +
+  geom_label(aes(x = 1.45, y = 16, label = conf.int[16]), fill = "white",label.size = NA,size=4.5) +
+  geom_label(aes(x = 1.45, y = 17, label = conf.int[17]), fill = "white",label.size = NA,size=4.5) +
+  geom_label(aes(x = 1.45, y = 18, label = conf.int[18]), fill = "white",label.size = NA,size=4.5) +
+  geom_label(aes(x = 1.45, y = 19, label = conf.int[19]), fill = "white",label.size = NA,size=4.5) +
+  geom_label(aes(x = 1.45, y = 20, label = conf.int[20]), fill = "white",label.size = NA,size=4.75, fontface = "bold") +
+  geom_label(aes(x = 1.45, y = 21, label = conf.int[21]), fill = "white",label.size = NA,size=4.75, fontface = "bold") +
+  geom_label(aes(x = 1.45, y = 22, label = conf.int[22]), fill = "white",label.size = NA,size=4.75, fontface = "bold") +
+    annotate("rect", xmin = 0.6, xmax = 1.6, ymin = 0.5, ymax = 3.5,
+           alpha = .1,fill = "black") +
+    annotate("rect", xmin = 0.6, xmax = 1.6, ymin = 4.5, ymax = 7.5,
+           alpha = .1,fill = "black") +
+    annotate("rect", xmin = 0.6, xmax = 1.6, ymin = 10.5, ymax = 13.5,
+           alpha = .1,fill = "black") +
+    annotate("rect", xmin = 0.6, xmax = 1.6, ymin = 16.5, ymax = 19.5,
+           alpha = .1,fill = "black") +
+  geom_hline(yintercept = 19.5,color="black",  alpha=0.5) + 
+  annotate("text", x = 1.45, y = 0.2, label = c("PR (95% CI)"), hjust = 0.5, size = 4.5, fontface = "bold") +
+  theme(legend.position="right", legend.key.size = unit(2,"line"),legend.text = element_text(size=13)) +
+  guides(colour=guide_legend(nrow=4))
+p.ment
+ggsave("dose1_ment.png",p.ment, width=14, height=10, device = "png")
+```

@@ -1,0 +1,196 @@
+---
+title: "registry_sens_analysis"
+author: "Gillian Murphy"
+date: "2023-08-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(readxl)
+library(metafor)
+library(broom)
+library(gridExtra)
+```
+
+# First vaccine dose
+## Dataframe
+```{r}
+setwd("/Volumes/projects/Covid_projects/COVIDMENT_vaccination_Mary/GM_meta_analysis/Registry project/updated_rr_analysis_mmb")
+
+sens_dose1 <- read_excel("supp_rr_results_diagmed_categories.xlsx", 
+    sheet = "dose1_cat_diagmed_2")
+
+index <- 1:12
+exposure <- c("Any mh - No diagnosis, medication", "Any mh - Diagnosis, no medication", "Any mh - Diagnosis, medication",
+              "Anxiety - No diagnosis, medication", "Anxiety - Diagnosis, no medication", "Anxiety - Diagnosis, medication",
+              "Depression - No diagnosis, medication", "Depression - Diagnosis, no medication", "Depression - Diagnosis, medication",
+              "Psychotic disorder - No diagnosis, medication", "Psychotic disorder - Diagnosis, no medication", "Psychotic disorder - Diagnosis, medication")
+name <- c(rep("Any mental illness",3),rep("Anxiety",3),rep("Depression",3),rep("Psychotic disorder",3))
+cat <- c(rep(c("No diagnosis, medication", "Diagnosis, no medication", "Diagnosis, medication"),4))
+cat <- factor(cat, levels = c("No diagnosis, medication", "Diagnosis, no medication", "Diagnosis, medication"))
+
+estimate <- as.numeric(c(sens_dose1$RR[3],sens_dose1$RR[4],sens_dose1$RR[5],
+              sens_dose1$RR[10],sens_dose1$RR[11],sens_dose1$RR[12],
+              sens_dose1$RR[17],sens_dose1$RR[18],sens_dose1$RR[19],
+              sens_dose1$RR[24],sens_dose1$RR[25],sens_dose1$RR[26]))
+conf.low <- as.numeric(c(sens_dose1$lci[3],sens_dose1$lci[4],sens_dose1$lci[5],
+              sens_dose1$lci[10],sens_dose1$lci[11],sens_dose1$lci[12],
+              sens_dose1$lci[17],sens_dose1$lci[18],sens_dose1$lci[19],
+              sens_dose1$lci[24],sens_dose1$lci[25],sens_dose1$lci[26]))
+conf.high <- as.numeric(c(sens_dose1$uci[3],sens_dose1$uci[4],sens_dose1$uci[5],
+              sens_dose1$uci[10],sens_dose1$uci[11],sens_dose1$uci[12],
+              sens_dose1$uci[17],sens_dose1$uci[18],sens_dose1$uci[19],
+              sens_dose1$uci[24],sens_dose1$uci[25],sens_dose1$uci[26]))
+
+conf.int <- rep(NA,length(index))
+for (i in index){
+  conf.int[i] <- paste(format(round(estimate[i],2),nsmall=2),
+                    " (",
+                    format(round(conf.low[i],digits=2),nsmall=2),
+                    "-",
+                    format(round(conf.high[i],2),nsmall=2)
+                    ,")",sep="")
+}
+df.sens_dose1 <- data.frame(index, exposure, name, cat, estimate$sens_dose1)
+```
+
+##Plot
+```{r}
+xname <- expression("Prevalence ratio")
+text.size <- 10
+cols <- c("#43CACA","#2F3A69","#F26D6D")
+labels <- c("","Any mental illness","","","Anxiety","","","Depression","","","Psychotic disorder","")
+labels <- as.expression(labels)
+labels[[2]] <- bquote(bold(.(labels[[2]])))
+labels[[5]] <- bquote(bold(.(labels[[5]])))
+labels[[8]] <- bquote(bold(.(labels[[8]])))
+labels[[11]] <- bquote(bold(.(labels[[11]])))
+
+p.sens1 <- ggplot(data = sens_dose1, aes(y=index, x= estimate, xmin=lci, xmax = uci))+
+  geom_vline(xintercept = 1,color="black", linetype = "dashed", alpha=0.5)+
+  geom_point(data = sens_dose1,aes(color=cat),size=1.4) +
+  geom_errorbarh(data = sens_dose1,aes(color=cat),height=0.05,linewidth=0.5) +
+  scale_y_continuous(name="", breaks = c(1:12),labels = labels, trans = "reverse",expand = c(0, 0)) + 
+  expand_limits(y = c(0, max(index) + 1)) + 
+  theme_classic()+ 
+  labs(title = "Received at least one dose of a COVID-19 vaccine by 30th September 2021") +
+  theme(axis.text.y = element_text(hjust = 0),text = element_text(size = text.size),axis.line.y = element_blank(),axis.ticks.y = element_blank(),axis.text=element_text(size=text.size)) +
+  guides(size="none")+
+  scale_x_continuous(limits = c(0.5,2.25), breaks=c(0.5,1,1.5), name=xname,expand = c(0, 0))+ 
+  scale_color_manual(name=bquote(bold("Exposure category")),labels=c("(-) Diagnosis, (+) Medication", "(+) Diagnosis, (-) Medication", "(+) Diagnosis, (+) Medication"), values = cols) +
+  geom_label(aes(x = 1.9, y = 1, label = conf.int[1]), fill = "white",label.size = NA,size=3.25) +
+  geom_label(aes(x = 1.9, y = 2, label = conf.int[2]), fill = "white",label.size = NA,size=3.25) +
+  geom_label(aes(x = 1.9, y = 3, label = conf.int[3]), fill = "white",label.size = NA,size=3.25) +
+  geom_label(aes(x = 1.9, y = 4, label = conf.int[4]), fill = "white",label.size = NA,size=3.25) +
+  geom_label(aes(x = 1.9, y = 5, label = conf.int[5]), fill = "white",label.size = NA,size=3.25) +
+  geom_label(aes(x = 1.9, y = 6, label = conf.int[6]), fill = "white",label.size = NA,size=3.25) +
+  geom_label(aes(x = 1.9, y = 7, label = conf.int[7]), fill = "white",label.size = NA,size=3.25) +
+  geom_label(aes(x = 1.9, y = 8, label = conf.int[8]), fill = "white",label.size = NA,size=3.25) +
+  geom_label(aes(x = 1.9, y = 9, label = conf.int[9]), fill = "white",label.size = NA,size=3.25) +
+  geom_label(aes(x = 1.9, y = 10, label = conf.int[10]), fill = "white",label.size = NA,size=3.25) +
+  geom_label(aes(x = 1.9, y = 11, label = conf.int[11]), fill = "white",label.size = NA,size=3.25) +
+  geom_label(aes(x = 1.9, y = 12, label = conf.int[12]), fill = "white",label.size = NA,size=3.25) +
+    annotate("rect", xmin = 0.5, xmax = 2.25, ymin = 0.5, ymax = 3.5,
+           alpha = .1,fill = "black") +
+    annotate("rect", xmin = 0.5, xmax = 2.25, ymin = 6.5, ymax = 9.5,
+           alpha = .1,fill = "black") +
+  theme(legend.position="right", legend.key.size = unit(1,"point")) +
+  guides(colour=guide_legend(nrow=4)) + 
+  annotate("text", x = 1.9, y = 0.2, label = c("OR (95% CI)"), hjust = 0.5, size = 3.25, fontface = "bold")
+p.sens1
+ggsave("sens_dose1_ment.png",p.sens1, width=10, height=5, device = "png")
+```
+
+
+# Second vaccine dose
+## Dataframe
+```{r}
+sens_dose2 <- read_excel("supp_results_diagmed_categories.xlsx", 
+    sheet = "dose2_cat_diagmed")
+
+index <- 1:12
+exposure <- c("Any mh - No diagnosis, medication", "Any mh - Diagnosis, no medication", "Any mh - Diagnosis, medication",
+              "Anxiety - No diagnosis, medication", "Anxiety - Diagnosis, no medication", "Anxiety - Diagnosis, medication",
+              "Depression - No diagnosis, medication", "Depression - Diagnosis, no medication", "Depression - Diagnosis, medication",
+              "Psychotic disorder - No diagnosis, medication", "Psychotic disorder - Diagnosis, no medication", "Psychotic disorder - Diagnosis, medication")
+name <- c(rep("Any mental illness",3),rep("Anxiety",3),rep("Depression",3),rep("Psychotic disorder",3))
+cat <- c(rep(c("No diagnosis, medication", "Diagnosis, no medication", "Diagnosis, medication"),4))
+cat <- factor(cat, levels = c("No diagnosis, medication", "Diagnosis, no medication", "Diagnosis, medication"))
+
+estimate <- as.numeric(c(sens_dose2$OR[3],sens_dose2$OR[4],sens_dose2$OR[5],
+              sens_dose2$OR[8],sens_dose2$OR[9],sens_dose2$OR[10],
+              sens_dose2$OR[13],sens_dose2$OR[14],sens_dose2$OR[15],
+              sens_dose2$OR[18],sens_dose2$OR[19],sens_dose2$OR[20]))
+conf.low <- as.numeric(c(sens_dose2$lci[3],sens_dose2$lci[4],sens_dose2$lci[5],
+              sens_dose2$lci[8],sens_dose2$lci[9],sens_dose2$lci[10],
+              sens_dose2$lci[13],sens_dose2$lci[14],sens_dose2$lci[15],
+              sens_dose2$lci[18],sens_dose2$lci[19],sens_dose2$lci[20]))
+conf.high <- as.numeric(c(sens_dose2$uci[3],sens_dose2$uci[4],sens_dose2$uci[5],
+              sens_dose2$uci[8],sens_dose2$uci[9],sens_dose2$uci[10],
+              sens_dose2$uci[13],sens_dose2$uci[14],sens_dose2$uci[15],
+              sens_dose2$uci[18],sens_dose2$uci[19],sens_dose2$uci[20]))
+
+conf.int <- rep(NA,length(index))
+for (i in index){
+  conf.int[i] <- paste(format(round(estimate[i],2),nsmall=2),
+                    " (",
+                    format(round(conf.low[i],digits=2),nsmall=2),
+                    "-",
+                    format(round(conf.high[i],2),nsmall=2)
+                    ,")",sep="")
+}
+df.sens_dose2 <- data.frame(index, exposure, name, cat, estimate, conf.low, conf.high, conf.int)
+```
+
+##Plot
+```{r}
+xname <- expression("Odds ratio")
+text.size <- 10
+cols <- c("#43CACA","#2F3A69","#F26D6D")
+labels <- c("","Any mental illness","","","Anxiety","","","Depression","","","Psychotic disorder","")
+labels <- as.expression(labels)
+labels[[2]] <- bquote(bold(.(labels[[2]])))
+labels[[5]] <- bquote(bold(.(labels[[5]])))
+labels[[8]] <- bquote(bold(.(labels[[8]])))
+labels[[11]] <- bquote(bold(.(labels[[11]])))
+
+p.sens2 <- ggplot(data = sens_dose2, aes(y=index, x= estimate, xmin=lci, xmax = uci))+
+  geom_vline(xintercept = 1,color="black", linetype = "dashed", alpha=0.5)+
+  geom_point(data = sens_dose2,aes(color=cat),size=1.4) +
+  geom_errorbarh(data = sens_dose2,aes(color=cat),height=0.05,linewidth=0.5) +
+  scale_y_continuous(name="", breaks = c(1:12),labels = labels, trans = "reverse",expand = c(0, 0)) + 
+  expand_limits(y = c(0, max(index) + 1)) + 
+  theme_classic()+ 
+  labs(title = "Received second dose of a COVID-19 vaccine by 30th November 2021") +
+  theme(axis.text.y = element_text(hjust = 0),text = element_text(size = text.size),axis.line.y = element_blank(),axis.ticks.y = element_blank(),axis.text=element_text(size=text.size)) +
+  guides(size="none")+
+  scale_x_continuous(limits = c(0.5,1.8), breaks=c(0.5,1,1.5), name=xname,expand = c(0, 0))+ 
+  scale_color_manual(name=bquote(bold("Exposure category")),labels=c("(-) Diagnosis, (+) Medication", "(+) Diagnosis, (-) Medication", "(+) Diagnosis, (+) Medication"), values = cols) +
+  geom_label(aes(x = 1.5, y = 1, label = conf.int[1]), fill = "white",label.size = NA,size=3.25) +
+  geom_label(aes(x = 1.5, y = 2, label = conf.int[2]), fill = "white",label.size = NA,size=3.25) +
+  geom_label(aes(x = 1.5, y = 3, label = conf.int[3]), fill = "white",label.size = NA,size=3.25) +
+  geom_label(aes(x = 1.5, y = 4, label = conf.int[4]), fill = "white",label.size = NA,size=3.25) +
+  geom_label(aes(x = 1.5, y = 5, label = conf.int[5]), fill = "white",label.size = NA,size=3.25) +
+  geom_label(aes(x = 1.5, y = 6, label = conf.int[6]), fill = "white",label.size = NA,size=3.25) +
+  geom_label(aes(x = 1.5, y = 7, label = conf.int[7]), fill = "white",label.size = NA,size=3.25) +
+  geom_label(aes(x = 1.5, y = 8, label = conf.int[8]), fill = "white",label.size = NA,size=3.25) +
+  geom_label(aes(x = 1.5, y = 9, label = conf.int[9]), fill = "white",label.size = NA,size=3.25) +
+  geom_label(aes(x = 1.5, y = 10, label = conf.int[10]), fill = "white",label.size = NA,size=3.25) +
+  geom_label(aes(x = 1.5, y = 11, label = conf.int[11]), fill = "white",label.size = NA,size=3.25) +
+  geom_label(aes(x = 1.5, y = 12, label = conf.int[12]), fill = "white",label.size = NA,size=3.25) +
+    annotate("rect", xmin = 0.5, xmax = 1.8, ymin = 0.5, ymax = 3.5,
+           alpha = .1,fill = "black") +
+    annotate("rect", xmin = 0.5, xmax = 1.8, ymin = 6.5, ymax = 9.5,
+           alpha = .1,fill = "black") +
+  theme(legend.position="right", legend.key.size = unit(1,"point")) +
+  guides(colour=guide_legend(nrow=4)) + 
+  annotate("text", x = 1.5, y = 0.2, label = c("OR (95% CI)"), hjust = 0.5, size = 3.25, fontface = "bold")
+p.sens2
+ggsave("sens_dose2_ment.png",p.sens2, width=10, height=5, device = "png")
+```
+
